@@ -1,6 +1,7 @@
 import 'dart:async';
 
 import 'package:flutter/material.dart';
+import 'package:flutter_polyline_points/flutter_polyline_points.dart';
 import 'package:geolocator/geolocator.dart';
 import 'package:google_maps_flutter/google_maps_flutter.dart';
 import 'package:provider/provider.dart';
@@ -8,6 +9,7 @@ import 'package:user/Assistants/assistantMethods.dart';
 import 'package:user/DataHandler/appData.dart';
 import 'package:user/screens/searchScreen.dart';
 import 'package:user/widgets/divider.dart';
+import 'package:user/widgets/progressDialog.dart';
 
 class MyHomePage extends StatefulWidget {
   static const String idScreen = "home";
@@ -24,6 +26,9 @@ class _MyHomePageState extends State<MyHomePage> {
   late GoogleMapController newGoogleMapController;
 
   GlobalKey<ScaffoldState> scaffoldKey = new GlobalKey<ScaffoldState>();
+
+  List<LatLng> pLineCoordinates = [];
+  Set<Polyline> polylineSet = {};
 
   late Position currentPosition;
   var geoLocator = Geolocator();
@@ -227,11 +232,14 @@ class _MyHomePageState extends State<MyHomePage> {
                       height: 20.0,
                     ),
                     GestureDetector(
-                      onTap: () {
-                        Navigator.push(
+                      onTap: () async {
+                        var res = await Navigator.push(
                             context,
                             MaterialPageRoute(
                                 builder: (context) => SearchScreen()));
+                        if (res == "obtainDirection") {
+                          await getPlaceDirection();
+                        }
                       },
                       child: Container(
                         decoration: BoxDecoration(
@@ -337,6 +345,58 @@ class _MyHomePageState extends State<MyHomePage> {
           ),
         ],
       ),
+    );
+  }
+
+  Future<void> getPlaceDirection() async {
+    var initialPos =
+        Provider.of<AppData>(context, listen: false).pickUpLocation;
+    var finalPos = Provider.of<AppData>(context, listen: false).dropOffLocation;
+
+    if (initialPos == null || finalPos == null) {
+      // Handle the case where either initialPos or finalPos is null
+      return;
+    }
+
+    var pickUpLatLng = LatLng(initialPos.latitude!, initialPos.longitude!);
+    var dropOffLatlng = LatLng(finalPos.latitude!, finalPos.longitude!);
+
+    showDialog(
+        context: context,
+        builder: (BuildContext context) => ProgressDialog(
+              message: "please wait...",
+            ));
+    var details = await AssistantMethods.obtainPlaceDirectionDetails(
+        pickUpLatLng, dropOffLatlng);
+
+    Navigator.pop(context);
+
+    // if (details != null) {
+    //   print("This is Encoded Points ::");
+    //   print(details.encodedPoints);
+    // } else {
+    // }
+    print("This is Encoded Points ::");
+    print(details.encodedPoints);
+
+    PolylinePoints polylinePoints = PolylinePoints();
+    List<PointLatLng> decodedPolyLinePointsResult =
+        polylinePoints.decodePolyline(details.encodedPoints);
+    if (decodedPolyLinePointsResult.isEmpty) {
+      decodedPolyLinePointsResult.forEach((PointLatLng pointLatLng) {
+        pLineCoordinates
+            .add(LatLng(pointLatLng.latitude, pointLatLng.longitude));
+      });
+    }
+    Polyline polyline = Polyline(
+      color: Colors.pink, // Remove the semicolon
+      polylineId: PolylineId("PolylineID"),
+      jointType: JointType.round,
+      points: pLineCoordinates,
+      width: 5,
+      startCap: Cap.roundCap,
+      endCap: Cap.roundCap,
+      geodesic: true,
     );
   }
 }

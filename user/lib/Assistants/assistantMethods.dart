@@ -4,6 +4,8 @@ import 'package:user/Assistants/requestAssistants.dart';
 import 'package:user/DataHandler/appData.dart';
 import 'package:user/configMaps.dart';
 import 'package:user/models/address.dart';
+import 'package:google_maps_flutter/google_maps_flutter.dart';
+import 'package:user/models/directDetails.dart';
 
 class AssistantMethods {
   static Future<String> searchCoordinateAddress(
@@ -19,11 +21,11 @@ class AssistantMethods {
           response["results"] is List &&
           response["results"].isNotEmpty) {
         // placeAddress = response["results"][0]["formatted_address"];
-        st1 = response["results"][0]["address_components"][1]["long_name"];
-        st2 = response["results"][0]["address_components"][2]["long_name"];
-        st3 = response["results"][0]["address_components"][4]["long_name"];
-        st4 = response["results"][0]["address_components"][5]["long_name"];
-        placeAddress = st1 + ", " + st2 + ", " + st3 + ", " + st4;
+        st1 = response["results"][0]["address_components"][0]["long_name"];
+        st2 = response["results"][0]["address_components"][1]["long_name"];
+        st3 = response["results"][0]["address_components"][2]["long_name"];
+        st4 = response["results"][0]["address_components"][3]["long_name"];
+        placeAddress = st1 + " " + st2 + ", " + st3 + ", " + st4;
 
         Address userPickUpAddress = new Address();
         userPickUpAddress.longitude = position.longitude;
@@ -37,5 +39,28 @@ class AssistantMethods {
       }
     }
     return placeAddress;
+  }
+
+  static Future<DirectionDetails> obtainPlaceDirectionDetails(
+      LatLng initialPosition, LatLng finalPosition) async {
+    String directionUrl =
+        "https://maps.googleapis.com/maps/api/directions/json?origin=${initialPosition.latitude},${initialPosition.longitude}&destination=${finalPosition.latitude},${finalPosition.longitude}&origin=Toronto&key=$mapKey";
+
+    var res = await RequestAssistant.getRequest(directionUrl);
+
+    if (res == "failed") {
+      throw Exception("Failed to obtain direction details");
+
+    }
+
+    DirectionDetails directionDetails = DirectionDetails(
+      distanceValue: res["routes"][0]["legs"][0]["distance"]["value"],
+      durationValue: res["routes"][0]["legs"][0]["duration"]["value"],
+      distanceText: res["routes"][0]["legs"][0]["distance"]["text"],
+      durationText: res["routes"][0]["legs"][0]["duration"]["text"],
+      encodedPoints: res["routes"][0]["overview_polyline"]["points"],
+    );
+
+    return directionDetails;
   }
 }
